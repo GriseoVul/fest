@@ -35,7 +35,7 @@ def get_tasks():
     all_child_ids = set()
     for t in db.get_tasks():
         if t.childs:
-            all_child_ids.update(c.id for c in t.childs)
+            all_child_ids.update(t.childs)
 
     roots = [t for t in tasks if t.id not in all_child_ids]
 
@@ -83,8 +83,8 @@ def create_task(task: TaskCreateSchema, parent: Optional[int] = None):
         if parent_task.childs is None:
             parent_task.childs = []
 
-        parent_task.childs.append(new_task)
-        db._update_childs(parent_task.id, [c.id for c in parent_task.childs])
+        parent_task.childs.append(new_task.id)
+        db._update_childs(parent_task.id, parent_task.childs)
 
     return new_task
 
@@ -147,7 +147,7 @@ def change_parent(id: int, parent_id: Optional[int] = Body(None)):
     if old_parent_id:
         old_parent_task = db.get_task(old_parent_id)
         if old_parent_task:
-            old_parent_task.childs = [c_id for c_id in old_parent_task.childs if c_id != task.id]
+            old_parent_task.childs = [c_id for c_id in old_parent_task.childs if c_id != id]
             db._update_childs(old_parent_id, old_parent_task.childs)
 
     # Обновляем childs нового родителя
@@ -156,7 +156,7 @@ def change_parent(id: int, parent_id: Optional[int] = Body(None)):
         if new_parent_task:
             if new_parent_task.childs is None:
                 new_parent_task.childs = []
-            new_parent_task.childs.append(task.id)
+            new_parent_task.childs.append(id)
             db._update_childs(parent_id, new_parent_task.childs)
 
     # Обновляем самого task

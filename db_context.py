@@ -209,8 +209,8 @@ class Database:
         task = self.get_task(task_id)
         if not task:
             return
-        for child in task.childs or []:
-            self.delete_task_recursive(child.id)
+        for child_id in task.childs or []:
+            self.delete_task_recursive(child_id)
         with self._cursor() as cur:
             cur.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
 
@@ -223,15 +223,15 @@ class Database:
             cur.execute("UPDATE tasks SET status = %s WHERE id = %s", (new_status, task_id))
 
         if new_status:
-            for child in task.childs or []:
-                self._set_task_status_recursive(child.id, True)
+            for child_id in task.childs or []:
+                self._set_task_status_recursive(child_id, True)
 
     def _set_task_status_recursive(self, task_id: int, status: bool) -> None:
         with self._cursor() as cur:
             cur.execute("UPDATE tasks SET status = %s WHERE id = %s", (status, task_id))
         child_task = self.get_task(task_id)
-        for c in child_task.childs or []:
-            self._set_task_status_recursive(c.id, status)
+        for child_id in child_task.childs or []:
+            self._set_task_status_recursive(child_id, status)
 
     def _update_childs(self, task_id: int, childs: List[int]) -> None:
         """Set the childs list for `task_id` while validating no cycles are created.
