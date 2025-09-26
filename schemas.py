@@ -14,7 +14,7 @@ class TaskSchema(BaseModel):
     description: Optional[str]
     status: bool
     updated: datetime = Field(default_factory=datetime.now)
-    parent: Optional[int] = None
+    parent: Optional["TaskSchema"] = None
     childs: List["TaskSchema"] = []
 
     class Config:

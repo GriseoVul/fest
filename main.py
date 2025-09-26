@@ -5,6 +5,7 @@ from typing import Optional, List
 from db_context import db
 from schemas import TaskSchema, TaskCreateSchema
 from datetime import datetime
+from converters import task_to_schema, tasks_to_schemas
 
 app = FastAPI(title="Tasks API",description="API для управления задачами ", version="1.0.0")
 db.initialize()
@@ -40,7 +41,7 @@ def get_tasks():
 
     roots = [t for t in tasks if t.id not in all_child_ids]
 
-    return roots
+    return tasks_to_schemas(roots)
 
 
 
@@ -52,7 +53,7 @@ def get_task(id: int):
     task = db.get_task(id)
     if not task:
         raise HTTPException(status_code=404, detail="Задача не найдена")
-    return task
+    return task_to_schema(task)
 
 
 @app.post('/tasks', response_model=TaskSchema,
@@ -88,7 +89,7 @@ def create_task(task: TaskCreateSchema, parent: Optional[int] = None):
         parent_task.childs.append(new_task)
         db._update_childs(parent_task.id, [child.id for child in parent_task.childs])
 
-    return new_task
+    return task_to_schema(new_task)
 
 
 
@@ -102,7 +103,7 @@ def delete_task(id: int):
         raise HTTPException(status_code=404, detail="Задача не найдена")
 
     db.delete_task_recursive(id)
-    return task
+    return task_to_schema(task)
 
 
 
@@ -117,7 +118,7 @@ def toggle_task(id: int, with_childs: bool = False):
         raise HTTPException(status_code=404, detail="Задача не найдена")
 
     db.toggle_task(id)
-    return db.get_task(id)  # возвращаем обновлённое дерево
+    return task_to_schema(db.get_task(id))  # возвращаем обновлённое дерево
 
 
 @app.post("/tasks/{id}/change-parent", response_model=TaskSchema)
@@ -169,4 +170,4 @@ def change_parent(id: int, parent_id: Optional[int] = Body(None)):
         task.parent = None
     db.update_task(task)
 
-    return db.get_task(id)
+    return task_to_schema(db.get_task(id))
