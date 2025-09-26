@@ -1,10 +1,9 @@
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from __future__ import annotations
+from typing import List, Optional
 
 @dataclass
 class Task:
