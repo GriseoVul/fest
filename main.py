@@ -71,7 +71,7 @@ def create_task(task: TaskCreateSchema, parent: Optional[int] = None):
         title=task.title,
         description=task.description,
         status=task.status,
-        parent=parent_task,
+        parent=parent,
         childs=[]
     ))
 

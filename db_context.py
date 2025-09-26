@@ -62,8 +62,8 @@ class Database:
         to set parent pointers and validate cycles.
         Returns the created Task or None on failure.
         """
-        childs_list = [c.id for c in task.childs] if task.childs else []
-        parent_id = task.parent.id if task.parent else None
+        childs_list = task.childs if task.childs else []
+        parent_id = task.parent
         with self._cursor() as cur:
             cur.execute(
                 """
@@ -279,8 +279,8 @@ class Database:
             return None
 
         task.updated = datetime.now()
-        parent_id = task.parent.id if task.parent else None
-        childs_list = [c.id for c in task.childs] if task.childs else []
+        parent_id = task.parent
+        childs_list = task.childs if task.childs else []
 
         with self._cursor() as cur:
             cur.execute(
