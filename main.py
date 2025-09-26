@@ -35,7 +35,7 @@ def get_tasks():
     all_child_ids = set()
     for t in db.get_tasks():
         if t.childs:
-            all_child_ids.update(t.childs)
+            all_child_ids.update(child.id for child in t.childs)
 
     roots = [t for t in tasks if t.id not in all_child_ids]
 
@@ -71,7 +71,7 @@ def create_task(task: TaskCreateSchema, parent: Optional[int] = None):
         title=task.title,
         description=task.description,
         status=task.status,
-        parent=parent,
+        parent=parent_task,
         childs=[]
     ))
 
@@ -83,8 +83,8 @@ def create_task(task: TaskCreateSchema, parent: Optional[int] = None):
         if parent_task.childs is None:
             parent_task.childs = []
 
-        parent_task.childs.append(new_task.id)
-        db._update_childs(parent_task.id, parent_task.childs)
+        parent_task.childs.append(new_task)
+        db._update_childs(parent_task.id, [child.id for child in parent_task.childs])
 
     return new_task
 
@@ -136,9 +136,9 @@ def change_parent(id: int, parent_id: Optional[int] = Body(None)):
             descendant_task = db.get_task(descendant_id)
             if not descendant_task:
                 return False
-            if target_id in descendant_task.childs:
+            if any(child.id == target_id for child in descendant_task.childs):
                 return True
-            return any(is_descendant(c_id, target_id) for c_id in descendant_task.childs)
+            return any(is_descendant(child.id, target_id) for child in descendant_task.childs)
 
         if is_descendant(id, parent_id):
             raise HTTPException(status_code=400, detail="Нельзя назначить потомка родителем задачи")
@@ -147,8 +147,8 @@ def change_parent(id: int, parent_id: Optional[int] = Body(None)):
     if old_parent_id:
         old_parent_task = db.get_task(old_parent_id)
         if old_parent_task:
-            old_parent_task.childs = [c_id for c_id in old_parent_task.childs if c_id != id]
-            db._update_childs(old_parent_id, old_parent_task.childs)
+            old_parent_task.childs = [child for child in old_parent_task.childs if child.id != id]
+            db._update_childs(old_parent_id, [child.id for child in old_parent_task.childs])
 
     # Обновляем childs нового родителя
     if parent_id:
@@ -156,8 +156,9 @@ def change_parent(id: int, parent_id: Optional[int] = Body(None)):
         if new_parent_task:
             if new_parent_task.childs is None:
                 new_parent_task.childs = []
-            new_parent_task.childs.append(id)
-            db._update_childs(parent_id, new_parent_task.childs)
+            # Добавляем текущую задачу в список детей нового родителя
+            new_parent_task.childs.append(task)
+            db._update_childs(parent_id, [child.id for child in new_parent_task.childs])
 
     # Обновляем самого task
     task.parent = parent_id

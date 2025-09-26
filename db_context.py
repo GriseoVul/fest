@@ -62,8 +62,8 @@ class Database:
         to set parent pointers and validate cycles.
         Returns the created Task or None on failure.
         """
-        childs_list = task.childs if task.childs else []
-        parent_id = task.parent
+        childs_list = [child.id for child in task.childs] if task.childs else []
+        parent_id = task.parent.id if task.parent else None
         with self._cursor() as cur:
             cur.execute(
                 """
@@ -112,59 +112,21 @@ class Database:
 
 
 
-    def _build_task(self, row: dict, visited: Optional[Set[int]] = None) -> Task:
-        """
-        Создаёт Task из строки БД.
-        parent хранится как int, childs — список id.
-        """
-        if visited is None:
-            visited = set()
-
-        task_id = row["id"]
-        local_visited = set(visited)
-        local_visited.add(task_id)
-
-        childs_ids = row.get("childs") or []
-
-        parent_id = row.get("parent")
-
-        return Task(
-            id=task_id,
-            title=row.get("title"),
-            description=row.get("description"),
-            status=row.get("status"),
-            updated=row.get("updated"),
-            parent=parent_id,
-            childs=childs_ids,
-        )
-
     # def _build_task(self, row: dict, visited: Optional[Set[int]] = None) -> Task:
-    #     """Create a Task dataclass from a DB row and populate children recursively.
-
-    #     The `visited` set is copied and passed to recursive calls to avoid cycles.
+    #     """
+    #     Создаёт Task из строки БД.
+    #     parent хранится как int, childs — список id.
     #     """
     #     if visited is None:
     #         visited = set()
 
     #     task_id = row["id"]
-    #     # copy visited to avoid mutating caller state
     #     local_visited = set(visited)
     #     local_visited.add(task_id)
 
-    #     # build children
-    #     childs: List[Task] = []
-    #     for child_id in row.get("childs") or []:
-    #         if child_id in local_visited:
-    #             continue
-    #         child = self.get_task(child_id, local_visited)
-    #         if child:
-    #             childs.append(child)
+    #     childs_ids = row.get("childs") or []
 
-    #     # build parent (avoid cycles)
-    #     parent = None
     #     parent_id = row.get("parent")
-    #     if parent_id and parent_id not in local_visited:
-    #         parent = self.get_task(parent_id, local_visited)
 
     #     return Task(
     #         id=task_id,
@@ -172,9 +134,47 @@ class Database:
     #         description=row.get("description"),
     #         status=row.get("status"),
     #         updated=row.get("updated"),
-    #         parent=parent,
-    #         childs=childs,
+    #         parent=parent_id,
+    #         childs=childs_ids,
     #     )
+
+    def _build_task(self, row: dict, visited: Optional[Set[int]] = None) -> Task:
+        """Create a Task dataclass from a DB row and populate children recursively.
+
+        The `visited` set is copied and passed to recursive calls to avoid cycles.
+        """
+        if visited is None:
+            visited = set()
+
+        task_id = row["id"]
+        # copy visited to avoid mutating caller state
+        local_visited = set(visited)
+        local_visited.add(task_id)
+
+        # build children
+        childs: List[Task] = []
+        for child_id in row.get("childs") or []:
+            if child_id in local_visited:
+                continue
+            child = self.get_task(child_id, local_visited)
+            if child:
+                childs.append(child)
+
+        # build parent (avoid cycles)
+        parent = None
+        parent_id = row.get("parent")
+        if parent_id and parent_id not in local_visited:
+            parent = self.get_task(parent_id, local_visited)
+
+        return Task(
+            id=task_id,
+            title=row.get("title"),
+            description=row.get("description"),
+            status=row.get("status"),
+            updated=row.get("updated"),
+            parent=parent,
+            childs=childs,
+        )
 
     # ---- cycle detection helpers ----
     def _get_parent_id(self, task_id: int) -> Optional[int]:
@@ -209,8 +209,8 @@ class Database:
         task = self.get_task(task_id)
         if not task:
             return
-        for child_id in task.childs or []:
-            self.delete_task_recursive(child_id)
+        for child in task.childs or []:
+            self.delete_task_recursive(child.id)
         with self._cursor() as cur:
             cur.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
 
@@ -223,15 +223,15 @@ class Database:
             cur.execute("UPDATE tasks SET status = %s WHERE id = %s", (new_status, task_id))
 
         if new_status:
-            for child_id in task.childs or []:
-                self._set_task_status_recursive(child_id, True)
+            for child in task.childs or []:
+                self._set_task_status_recursive(child.id, True)
 
     def _set_task_status_recursive(self, task_id: int, status: bool) -> None:
         with self._cursor() as cur:
             cur.execute("UPDATE tasks SET status = %s WHERE id = %s", (status, task_id))
         child_task = self.get_task(task_id)
-        for child_id in child_task.childs or []:
-            self._set_task_status_recursive(child_id, status)
+        for child in child_task.childs or []:
+            self._set_task_status_recursive(child.id, status)
 
     def _update_childs(self, task_id: int, childs: List[int]) -> None:
         """Set the childs list for `task_id` while validating no cycles are created.
@@ -279,8 +279,8 @@ class Database:
             return None
 
         task.updated = datetime.now()
-        parent_id = task.parent
-        childs_list = task.childs if task.childs else []
+        parent_id = task.parent.id if task.parent else None
+        childs_list = [child.id for child in task.childs] if task.childs else []
 
         with self._cursor() as cur:
             cur.execute(

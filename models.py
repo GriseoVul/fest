@@ -1,7 +1,10 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from __future__ import annotations
 
 @dataclass
 class Task:
@@ -10,5 +13,5 @@ class Task:
     description: Optional[str]
     status: bool
     updated: datetime
-    parent: Optional[int] = None     # хранит только id
-    childs: List[int] = field(default_factory=list)  # только id детей
+    parent: Optional["Task"] = None     # может быть объектом или None
+    childs: List["Task"] = field(default_factory=list)  # список объектов Task
