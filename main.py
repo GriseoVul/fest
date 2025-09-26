@@ -4,6 +4,7 @@ from models import Task
 from typing import Optional, List
 from db_context import db
 from schemas import TaskSchema, TaskCreateSchema
+from datetime import datetime
 
 app = FastAPI(title="Tasks API",description="API для управления задачами ", version="1.0.0")
 db.initialize()
@@ -71,6 +72,7 @@ def create_task(task: TaskCreateSchema, parent: Optional[int] = None):
         title=task.title,
         description=task.description,
         status=task.status,
+        updated=datetime.now(),
         parent=parent_task,
         childs=[]
     ))
@@ -161,7 +163,10 @@ def change_parent(id: int, parent_id: Optional[int] = Body(None)):
             db._update_childs(parent_id, [child.id for child in new_parent_task.childs])
 
     # Обновляем самого task
-    task.parent = parent_id
+    if parent_id:
+        task.parent = new_parent_task
+    else:
+        task.parent = None
     db.update_task(task)
 
     return db.get_task(id)
